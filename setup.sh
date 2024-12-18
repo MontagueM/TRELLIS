@@ -67,16 +67,16 @@ fi
 if [ "$NEW_ENV" = true ] ; then
     conda create -n trellis python=3.10
     conda activate trellis
-    conda install pytorch==2.4.0 torchvision==0.19.0 pytorch-cuda=11.8 -c pytorch -c nvidia
+    conda install pytorch==2.4.0 torchvision==0.19.0 pytorch-cuda=12.1 -c pytorch -c nvidia
 fi
 
 # Get system information
 WORKDIR=$(pwd)
-PYTORCH_VERSION=$(python -c "import torch; print(torch.__version__)")
+PYTORCH_VERSION="2.4.0"
 PLATFORM=$(python -c "import torch; print(('cuda' if torch.version.cuda else ('hip' if torch.version.hip else 'unknown')) if torch.cuda.is_available() else 'cpu')")
 case $PLATFORM in
     cuda)
-        CUDA_VERSION=$(python -c "import torch; print(torch.version.cuda)")
+        CUDA_VERSION="12.1"
         CUDA_MAJOR_VERSION=$(echo $CUDA_VERSION | cut -d'.' -f1)
         CUDA_MINOR_VERSION=$(echo $CUDA_VERSION | cut -d'.' -f2)
         echo "[SYSTEM] PyTorch Version: $PYTORCH_VERSION, CUDA Version: $CUDA_VERSION"

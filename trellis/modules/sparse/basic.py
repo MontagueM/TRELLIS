@@ -35,6 +35,16 @@ class SparseTensor:
     @overload
     def __init__(self, data, shape: Optional[torch.Size] = None, layout: Optional[List[slice]] = None, **kwargs): ...
 
+    @staticmethod
+    def init():
+        global SparseTensorData
+        if SparseTensorData is None:
+            import importlib
+            if BACKEND == 'torchsparse':
+                SparseTensorData = importlib.import_module('torchsparse').SparseTensor
+            elif BACKEND == 'spconv':
+                SparseTensorData = importlib.import_module('spconv.pytorch').SparseConvTensor
+
     def __init__(self, *args, **kwargs):
         # Lazy import of sparse tensor backend
         global SparseTensorData

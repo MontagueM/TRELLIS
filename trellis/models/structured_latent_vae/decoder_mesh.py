@@ -8,6 +8,7 @@ from ...modules import sparse as sp
 from .base import SparseTransformerBase
 from ...representations import MeshExtractResult
 from ...representations.mesh import SparseFeatures2Mesh
+from time import time
 
 
 class SparseSubdivideBlock3d(nn.Module):
@@ -61,10 +62,19 @@ class SparseSubdivideBlock3d(nn.Module):
             an [N x C x ...] Tensor of outputs.
         """
         h = self.act_layers(x)
+        del self.act_layers
         h = self.sub(h)
         x = self.sub(x)
+        del self.sub
         h = self.out_layers(h)
+        # delete each bit in the out_layers
+        del self.out_layers[3]
+        del self.out_layers[2]
+        del self.out_layers[1]
+        del self.out_layers[0]
+        del self.out_layers
         h = h + self.skip_connection(x)
+        del self.skip_connection
         return h
 
 
@@ -102,8 +112,8 @@ class SLatMeshDecoder(SparseTransformerBase):
         )
         self.resolution = resolution
         self.rep_config = representation_config
-        self.mesh_extractor = SparseFeatures2Mesh(res=self.resolution*4, use_color=self.rep_config.get('use_color', False))
-        self.out_channels = self.mesh_extractor.feats_channels
+        # self.out_channels = self.mesh_extractor.feats_channels
+        self.out_channels = SparseFeatures2Mesh.get_feats_channels(use_color=self.rep_config.get('use_color', False))
         self.upsample = nn.ModuleList([
             SparseSubdivideBlock3d(
                 channels=model_channels,
@@ -153,15 +163,41 @@ class SLatMeshDecoder(SparseTransformerBase):
             list of representations
         """
         ret = []
+        # x.coords = x.coords.to(torch.int16)
+        x.data = x.data.replace_feature(x.feats.to(torch.float16))
+        mesh_extractor = SparseFeatures2Mesh(res=self.resolution*4, use_color=self.rep_config.get('use_color', False))
         for i in range(x.shape[0]):
-            mesh = self.mesh_extractor(x[i], training=self.training)
+            mesh = mesh_extractor(x[i], training=self.training)
             ret.append(mesh)
+        del mesh_extractor
         return ret
 
     def forward(self, x: sp.SparseTensor) -> List[MeshExtractResult]:
+        st = time()
+        print(f"({time()-st}) SLatMeshDecoder.forward: x.shape={x.shape}")
+        # set super as cuda
+        # super().to(x.device)
         h = super().forward(x)
-        for block in self.upsample:
+        # super().to("cpu")
+        print(f"({time()-st}) SLatMeshDecoder.forward: h.shape={h.shape}, upsample: {len(self.upsample)}")
+        for i, block in enumerate(self.upsample):
+            print(f"({time() - st:.2f}) SLatMeshDecoder.forward: block {i}: {block}")
             h = block(h)
+            print(f"({time() - st:.2f}) SLatMeshDecoder.forward: block {i} h.shape={h.shape}")
+
+            # Delete the block to free memory
+            self.upsample[i] = None
+            del block
+
+            # Clear CUDA cache
+            torch.cuda.empty_cache()
+            
         h = h.type(x.dtype)
+        print(f"({time()-st}) SLatMeshDecoder.forward: h.shape={h.shape}, out_layer: {self.out_layer}")
         h = self.out_layer(h)
-        return self.to_representation(h)
+        del self.out_layer
+        torch.cuda.empty_cache()
+        print(f"({time()-st}) SLatMeshDecoder.forward: out h.shape={h.shape}")
+        reprr = self.to_representation(h)
+        print(f"({time()-st}) SLatMeshDecoder.forward: repr len={len(reprr)}")
+        return reprr

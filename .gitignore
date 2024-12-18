@@ -396,3 +396,11 @@ FodyWeavers.xsd
 
 # JetBrains Rider
 *.sln.iml
+
+.idea
+extensions/vox2seq/vox2seq/_C.cp310-win_amd64.pyd
+huggingface/
+output/
+.glb
+slat.pt
+snapshot.pickle

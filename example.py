@@ -14,6 +14,7 @@ pipeline = TrellisImageTo3DPipeline.from_pretrained("JeffreyXiang/TRELLIS-image-
 pipeline.cuda()
 
 # Load an image
+# image = Image.open("ruins.png")
 image = Image.open("assets/example_image/T.png")
 
 # Run the pipeline
@@ -36,12 +37,12 @@ outputs = pipeline.run(
 # - outputs['mesh']: a list of meshes
 
 # Render the outputs
-video = render_utils.render_video(outputs['gaussian'][0])['color']
-imageio.mimsave("sample_gs.mp4", video, fps=30)
-video = render_utils.render_video(outputs['radiance_field'][0])['color']
-imageio.mimsave("sample_rf.mp4", video, fps=30)
+# video = render_utils.render_video(outputs['gaussian'][0])['color']
+# imageio.mimsave("output/sample_gs.mp4", video, fps=30)
+# video = render_utils.render_video(outputs['radiance_field'][0])['color']
+# imageio.mimsave("output/sample_rf.mp4", video, fps=30)
 video = render_utils.render_video(outputs['mesh'][0])['normal']
-imageio.mimsave("sample_mesh.mp4", video, fps=30)
+imageio.mimsave("output/sample_mesh.mp4", video, fps=30)
 
 # GLB files can be extracted from the outputs
 glb = postprocessing_utils.to_glb(
@@ -51,4 +52,4 @@ glb = postprocessing_utils.to_glb(
     simplify=0.95,          # Ratio of triangles to remove in the simplification process
     texture_size=1024,      # Size of the texture used for the GLB
 )
-glb.export("sample.glb")
+glb.export("output/sample.glb")

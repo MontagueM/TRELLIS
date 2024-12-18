@@ -109,9 +109,25 @@ class SparseTransformerBase(nn.Module):
 
     def forward(self, x: sp.SparseTensor) -> sp.SparseTensor:
         h = self.input_layer(x)
+        del self.input_layer.bias
+        del self.input_layer.weight
+        del self.input_layer
+        torch.cuda.empty_cache()
         if self.pe_mode == "ape":
             h = h + self.pos_embedder(x.coords[:, 1:])
+            del self.pos_embedder.freqs
+            del self.pos_embedder
+            torch.cuda.empty_cache()
+        del x
+        torch.cuda.empty_cache()
         h = h.type(self.dtype)
         for block in self.blocks:
             h = block(h)
+            del block.attn.to_out.bias
+            del block.attn.to_out.weight
+            del block.attn.to_qkv.bias
+            del block.attn.to_qkv.weight
+            del block
+            torch.cuda.empty_cache()
+            
         return h

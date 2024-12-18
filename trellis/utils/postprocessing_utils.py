@@ -227,6 +227,13 @@ def postprocess_mesh(
 
     if verbose:
         tqdm.write(f'Before postprocess: {vertices.shape[0]} vertices, {faces.shape[0]} faces')
+    
+    # save original mesh
+    original_vertices = vertices.copy()
+    original_faces = faces.copy()
+    mesh = trimesh.Trimesh(original_vertices, original_faces)
+    mesh.export("original_sample.glb")
+
 
     # Simplify
     if simplify and simplify_ratio > 0:
