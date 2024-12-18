@@ -232,7 +232,7 @@ def postprocess_mesh(
     original_vertices = vertices.copy()
     original_faces = faces.copy()
     mesh = trimesh.Trimesh(original_vertices, original_faces)
-    mesh.export("original_sample.glb")
+    mesh.export("output/original_sample.glb")
 
 
     # Simplify

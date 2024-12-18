@@ -163,9 +163,11 @@ class SLatMeshDecoder(SparseTransformerBase):
             list of representations
         """
         ret = []
-        # x.coords = x.coords.to(torch.int16)
+        x.coords = x.coords.to(torch.uint8)
         x.data = x.data.replace_feature(x.feats.to(torch.float16))
-        mesh_extractor = SparseFeatures2Mesh(res=self.resolution*4, use_color=self.rep_config.get('use_color', False))
+        # x = x.to("cpu")
+        device = "cuda"
+        mesh_extractor = SparseFeatures2Mesh(res=self.resolution*4, use_color=self.rep_config.get('use_color', False), device=device)
         for i in range(x.shape[0]):
             mesh = mesh_extractor(x[i], training=self.training)
             ret.append(mesh)

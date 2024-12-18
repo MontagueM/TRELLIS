@@ -15,10 +15,10 @@ torch.cuda.memory._record_memory_history()
 
 sp.SparseTensor.init()
 
-model_json = json.load(open("ckpts_slat_dec_mesh_swin8_B_64l8m256c_fp16.json"))
+model_json = json.load(open("ckpts/ckpts_slat_dec_mesh_swin8_B_64l8m256c_fp16.json"))
 model = SLatMeshDecoder(**model_json['args'])
 
-model_data = load_file("slat_dec_mesh_swin8_B_64l8m256c_fp16.safetensors", device='cuda')
+model_data = load_file("ckpts/slat_dec_mesh_swin8_B_64l8m256c_fp16.safetensors", device='cuda')
 model.load_state_dict(model_data)
 model.to('cuda')
 model.eval()

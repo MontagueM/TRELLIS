@@ -3,6 +3,9 @@ import os
 os.environ['SPCONV_ALGO'] = 'native'        # Can be 'native' or 'auto', default is 'auto'.
                                             # 'auto' is faster but will do benchmarking at the beginning.
                                             # Recommended to set to 'native' if run only once.
+                                            
+import torch
+torch.cuda.memory._record_memory_history()
 
 import imageio
 from PIL import Image
@@ -15,7 +18,7 @@ pipeline.cuda()
 
 # Load an image
 # image = Image.open("ruins.png")
-image = Image.open("assets/example_image/T.png")
+image = Image.open("assets/example_image/typical_building_castle.png")
 
 # Run the pipeline
 outputs = pipeline.run(
@@ -36,6 +39,8 @@ outputs = pipeline.run(
 # - outputs['radiance_field']: a list of radiance fields
 # - outputs['mesh']: a list of meshes
 
+os.makedirs("output", exist_ok=True)
+
 # Render the outputs
 # video = render_utils.render_video(outputs['gaussian'][0])['color']
 # imageio.mimsave("output/sample_gs.mp4", video, fps=30)
@@ -53,3 +58,5 @@ glb = postprocessing_utils.to_glb(
     texture_size=1024,      # Size of the texture used for the GLB
 )
 glb.export("output/sample.glb")
+
+torch.cuda.memory._dump_snapshot("snapshot.pickle")

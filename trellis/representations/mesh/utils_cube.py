@@ -1,18 +1,20 @@
 import torch
 cube_corners = torch.tensor([[0, 0, 0], [1, 0, 0], [0, 1, 0], [1, 1, 0], [0, 0, 1], [
-        1, 0, 1], [0, 1, 1], [1, 1, 1]], dtype=torch.int)
-cube_neighbor = torch.tensor([[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]])
+        1, 0, 1], [0, 1, 1], [1, 1, 1]], dtype=torch.int32)
+cube_neighbor = torch.tensor([[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]],
+                             dtype=torch.int32)
 cube_edges = torch.tensor([0, 1, 1, 5, 4, 5, 0, 4, 2, 3, 3, 7, 6, 7, 2, 6,
-                2, 0, 3, 1, 7, 5, 6, 4], dtype=torch.long, requires_grad=False)
+                2, 0, 3, 1, 7, 5, 6, 4], dtype=torch.int32, requires_grad=False)
      
 def construct_dense_grid(res, device='cuda'):
     '''construct a dense grid based on resolution'''
     res_v = res + 1
-    vertsid = torch.arange(res_v ** 3, device=device)
+    vertsid = torch.arange(res_v ** 3, device=device, dtype=torch.int32)
     coordsid = vertsid.reshape(res_v, res_v, res_v)[:res, :res, :res].flatten()
     cube_corners_bias = (cube_corners[:, 0] * res_v + cube_corners[:, 1]) * res_v + cube_corners[:, 2]
     cube_fx8 = (coordsid.unsqueeze(1) + cube_corners_bias.unsqueeze(0).to(device))
     verts = torch.stack([vertsid // (res_v ** 2), (vertsid // res_v) % res_v, vertsid % res_v], dim=1)
+    verts = verts.to(torch.uint16)
     return verts, cube_fx8
 
 
@@ -52,7 +54,9 @@ def get_dense_attrs(coords : torch.Tensor, feats : torch.Tensor, res : int, sdf_
     dense_attrs = torch.zeros([res] * 3 + [F], device=feats.device, dtype=feats.dtype)
     if sdf_init:
         dense_attrs[..., 0] = 1 # initial outside sdf value
-    dense_attrs[coords[:, 0], coords[:, 1], coords[:, 2], :] = feats
+    tcoords = coords.to(torch.int32)
+    dense_attrs[tcoords[:, 0], tcoords[:, 1], tcoords[:, 2], :] = feats
+    del tcoords
     return dense_attrs.reshape(-1, F)
 
 

@@ -404,3 +404,4 @@ output/
 .glb
 slat.pt
 snapshot.pickle
+ckpts/
