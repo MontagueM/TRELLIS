@@ -163,8 +163,8 @@ class SLatMeshDecoder(SparseTransformerBase):
             list of representations
         """
         ret = []
-        x.coords = x.coords.to(torch.uint8)
         x.data = x.data.replace_feature(x.feats.to(torch.float16))
+        # x.coords = x.coords.to(torch.uint8)
         # x = x.to("cpu")
         device = "cuda"
         mesh_extractor = SparseFeatures2Mesh(res=self.resolution*4, use_color=self.rep_config.get('use_color', False), device=device)
@@ -175,17 +175,17 @@ class SLatMeshDecoder(SparseTransformerBase):
         return ret
 
     def forward(self, x: sp.SparseTensor) -> List[MeshExtractResult]:
-        st = time()
-        print(f"({time()-st}) SLatMeshDecoder.forward: x.shape={x.shape}")
+        # st = time()
+        # print(f"({time()-st}) SLatMeshDecoder.forward: x.shape={x.shape}")
         # set super as cuda
         # super().to(x.device)
         h = super().forward(x)
         # super().to("cpu")
-        print(f"({time()-st}) SLatMeshDecoder.forward: h.shape={h.shape}, upsample: {len(self.upsample)}")
+        # print(f"({time()-st}) SLatMeshDecoder.forward: h.shape={h.shape}, upsample: {len(self.upsample)}")
         for i, block in enumerate(self.upsample):
-            print(f"({time() - st:.2f}) SLatMeshDecoder.forward: block {i}: {block}")
+            # print(f"({time() - st:.2f}) SLatMeshDecoder.forward: block {i}: {block}")
             h = block(h)
-            print(f"({time() - st:.2f}) SLatMeshDecoder.forward: block {i} h.shape={h.shape}")
+            # print(f"({time() - st:.2f}) SLatMeshDecoder.forward: block {i} h.shape={h.shape}")
 
             # Delete the block to free memory
             self.upsample[i] = None
@@ -195,11 +195,11 @@ class SLatMeshDecoder(SparseTransformerBase):
             torch.cuda.empty_cache()
             
         h = h.type(x.dtype)
-        print(f"({time()-st}) SLatMeshDecoder.forward: h.shape={h.shape}, out_layer: {self.out_layer}")
+        # print(f"({time()-st}) SLatMeshDecoder.forward: h.shape={h.shape}, out_layer: {self.out_layer}")
         h = self.out_layer(h)
         del self.out_layer
         torch.cuda.empty_cache()
-        print(f"({time()-st}) SLatMeshDecoder.forward: out h.shape={h.shape}")
+        # print(f"({time()-st}) SLatMeshDecoder.forward: out h.shape={h.shape}")
         reprr = self.to_representation(h)
-        print(f"({time()-st}) SLatMeshDecoder.forward: repr len={len(reprr)}")
+        # print(f"({time()-st}) SLatMeshDecoder.forward: repr len={len(reprr)}")
         return reprr

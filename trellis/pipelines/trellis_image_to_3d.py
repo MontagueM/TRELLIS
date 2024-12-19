@@ -56,6 +56,7 @@ class TrellisImageTo3DPipeline(Pipeline):
         return self._device
 
     def _print_vram_usage(self, message: str):
+        return
         """
         Print the current VRAM usage with a custom message.
 
@@ -71,7 +72,7 @@ class TrellisImageTo3DPipeline(Pipeline):
 
     def load_model(self, model_key: str) -> nn.Module:
         """Move a model to CUDA and return it."""
-        print(f"Loading model '{model_key}' to CUDA.")
+        # print(f"Loading model '{model_key}' to CUDA.")
         self.models[model_key].to(self.device)
         self._print_vram_usage(f"After loading '{model_key}'")
         return self.models[model_key]
@@ -80,7 +81,7 @@ class TrellisImageTo3DPipeline(Pipeline):
         """Unload models to CPU."""
         for key in model_keys:
             if key in self.models:
-                print(f"Unloading model '{key}' to CPU.")
+                # print(f"Unloading model '{key}' to CPU.")
                 self.models[key].to(torch.device("cpu"))
                 if delete:
                     del self.models[key]
@@ -288,14 +289,14 @@ class TrellisImageTo3DPipeline(Pipeline):
             dict: The decoded structured latent.
         """
         # print slat shape
-        print(f"SLAT shape: {slat.shape}")
+        # print(f"SLAT shape: {slat.shape}")
     
         # tensor code requires int32 for get_indice_pairs
         # slat.data.indices = slat.data.indices.to(torch.uint8)
         # slat.data = slat.data.replace_feature(slat.data.features.to(torch.float16))
                 
         # save entire slat object
-        torch.save(slat, 'slat.pt')
+        # torch.save(slat, 'slat.pt')
         
         ret = {}
         if 'gaussian' in formats:

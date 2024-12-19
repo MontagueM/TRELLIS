@@ -122,20 +122,23 @@ class Gaussian:
         return l
 
     def save_ply(self, path):
+        self.to_ply().write(path)
+        
+    def to_ply(self):
         xyz = self.get_xyz.detach().cpu().numpy()
         normals = np.zeros_like(xyz)
         f_dc = self._features_dc.detach().transpose(1, 2).flatten(start_dim=1).contiguous().cpu().numpy()
         opacities = inverse_sigmoid(self.get_opacity).detach().cpu().numpy()
         scale = torch.log(self.get_scaling).detach().cpu().numpy()
         rotation = (self._rotation + self.rots_bias[None, :]).detach().cpu().numpy()
-
+    
         dtype_full = [(attribute, 'f4') for attribute in self.construct_list_of_attributes()]
-
+    
         elements = np.empty(xyz.shape[0], dtype=dtype_full)
         attributes = np.concatenate((xyz, normals, f_dc, opacities, scale, rotation), axis=1)
         elements[:] = list(map(tuple, attributes))
         el = PlyElement.describe(elements, 'vertex')
-        PlyData([el]).write(path)
+        return PlyData([el])
 
     def load_ply(self, path):
         plydata = PlyData.read(path)

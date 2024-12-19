@@ -10,19 +10,15 @@ $Env:UV_NO_CACHE = 0
 $Env:UV_LINK_MODE = "symlink"
 $Env:GIT_LFS_SKIP_SMUDGE = 1
 
-function InstallFail {
-    Write-Output "Install failed|安装失败。"
-    Read-Host | Out-Null ;
-    Exit
-}
-
 function Check {
     param (
         $ErrorInfo
     )
     if (!($?)) {
         Write-Output $ErrorInfo
-        InstallFail
+        Write-Output "Install failed"
+        Read-Host | Out-Null ;
+        Exit
     }
 }
 
@@ -30,9 +26,9 @@ if (Test-Path "./venv/Scripts/activate") {
     Write-Output "Windows venv"
     . ./venv/Scripts/activate
 }
-elseif (Test-Path "./.venv/Scripts/activate") {
+elseif (Test-Path "../.venv/Scripts/activate") {
     Write-Output "Windows .venv"
-    . ./.venv/Scripts/activate
+    . ../.venv/Scripts/activate
 }
 else {
     Write-Output "Create .venv"
@@ -61,9 +57,6 @@ Check "Install diffoctreerast failed"
 ~/.local/bin/uv pip install git+https://github.com/sdbds/diff-gaussian-rasterization
 Check "Install diff-gaussian-rasterization failed"
 
-# diffusers HEAD
-~/.local/bin/uv pip install git+https://github.com/huggingface/diffusers
-
 # triton
 ~/.local/bin/uv pip install https://huggingface.co/madbuda/triton-windows-builds/resolve/main/triton-3.0.0-cp310-cp310-win_amd64.whl
 Check "Install triton failed"
@@ -76,8 +69,16 @@ Check "Install accelerate failed"
 ~/.local/bin/uv pip install https://github.com/bdashore3/flash-attention/releases/download/v2.7.1.post1/flash_attn-2.7.1.post1+cu124torch2.5.1cxx11abiFALSE-cp310-cp310-win_amd64.whl
 Check "Install flash_attn failed"
 
+# wheel
+~/.local/bin/uv pip install wheel
+Check "Install wheel failed"
+
+
 # tensorrt
-~/.local/bin/uv pip install tensorrt
+# ~/.local/bin/uv pip install nvidia_stub
+# Check "Install nvidia_stub for tensorrt failed"
+
+# ~/.local/bin/uv pip install torch-tensorrt
+# Check "Install tensorrt failed"
 
 Write-Output "Install finished"
-Read-Host | Out-Null ;
