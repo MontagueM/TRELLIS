@@ -47,6 +47,7 @@ class TrellisImageTo3DPipeline(Pipeline):
         self.rembg_session = None
         self._init_image_cond_model(image_cond_model)
         self._print_vram_usage("After initialization")
+        self.step_callback = None
 
     @property
     def device(self) -> torch.device:
@@ -370,6 +371,7 @@ class TrellisImageTo3DPipeline(Pipeline):
             slat_sampler_params: dict = {},
             formats: List[str] = ['mesh', 'gaussian', 'radiance_field'],
             preprocess_image: bool = True,
+            step_callback: Optional[Callable[[int], None]] = None,
     ) -> dict:
         """
         Run the pipeline.
@@ -381,31 +383,37 @@ class TrellisImageTo3DPipeline(Pipeline):
             slat_sampler_params (dict): Additional parameters for the structured latent sampler.
             preprocess_image (bool): Whether to preprocess the image.
         """
+        self.step_callback = step_callback
         start_time = time()
         # Unload decoders if they are loaded
         # self.unload_models(['slat_decoder_mesh', 'slat_decoder_gs', 'slat_decoder_rf'], delete=False)
         self.unload_models(['sparse_structure_flow_model','sparse_structure_decoder', 'slat_flow_model', 'slat_decoder_mesh', 'slat_decoder_gs', 'slat_decoder_rf'], delete=False)
         self._print_vram_usage("After unloading decoders at start")
-
+        self.step_callback(0)
         if preprocess_image:
             print(f"({time() - start_time:.2f}s) Preprocessing image...")
             image = self.preprocess_image(image)
 
+        self.step_callback(1)
         print(f"({time() - start_time:.2f}s) Getting conditional info of image...")
         cond = self.get_cond([image])
 
         torch.manual_seed(seed)
         self._print_vram_usage("After setting seed and getting conditioning")
 
+        self.step_callback(2)
         print(f"({time() - start_time:.2f}s) Sampling sparse structure...")
         coords = self.sample_sparse_structure(cond, num_samples, sparse_structure_sampler_params)
 
+        self.step_callback(3)
         print(f"({time() - start_time:.2f}s) Sampling structured latent...")
         slat = self.sample_slat(cond, coords, slat_sampler_params)
 
+        self.step_callback(4)
         print(f"({time() - start_time:.2f}s) Decoding structured latent...")
         decoded = self.decode_slat(slat, start_time, formats)
         print(f"({time() - start_time:.2f}s) Done.")
+        self.step_callback(5)
 
         self._print_vram_usage("After running pipeline")
         return decoded
