@@ -201,6 +201,7 @@ def postprocess_mesh(
     faces: np.array,
     simplify: bool = True,
     simplify_ratio: float = 0.9,
+    target_triangle_count: int = -1,
     fill_holes: bool = True,
     fill_holes_max_hole_size: float = 0.04,
     fill_holes_max_hole_nbe: int = 32,
@@ -236,8 +237,16 @@ def postprocess_mesh(
 
 
     # Simplify
-    if simplify and simplify_ratio > 0:
+    if simplify:
         mesh = pv.PolyData(vertices, np.concatenate([np.full((faces.shape[0], 1), 3), faces], axis=1))
+        
+        num_triangles = mesh.n_faces
+        if target_triangle_count != -1:
+            simplify_ratio = 1 - target_triangle_count / num_triangles
+            if simplify_ratio >= 1:
+                print(f"Target triangle count is larger than the original mesh: {target_triangle_count} > {num_triangles}")
+                simplify_ratio = 0
+        
         mesh = mesh.decimate(simplify_ratio, progress_bar=verbose)
         vertices, faces = mesh.points, mesh.faces.reshape(-1, 4)[:, 1:]
         if verbose:
@@ -406,6 +415,7 @@ def to_glb(
     app_rep: Union[Strivec, Gaussian],
     mesh: MeshExtractResult,
     simplify: float = 0.95,
+    target_triangle_count: int = -1,
     fill_holes: bool = True,
     fill_holes_max_size: float = 0.04,
     texture_size: int = 1024,
@@ -431,8 +441,9 @@ def to_glb(
     # mesh postprocess
     vertices, faces = postprocess_mesh(
         vertices, faces,
-        simplify=simplify > 0,
+        simplify=simplify > 0 or target_triangle_count != -1,
         simplify_ratio=simplify,
+        target_triangle_count=target_triangle_count,
         fill_holes=fill_holes,
         fill_holes_max_hole_size=fill_holes_max_size,
         fill_holes_max_hole_nbe=int(250 * np.sqrt(1-simplify)),

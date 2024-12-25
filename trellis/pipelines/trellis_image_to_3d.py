@@ -319,6 +319,7 @@ class TrellisImageTo3DPipeline(Pipeline):
             self.unload_models(['slat_decoder_mesh'])
             self._print_vram_usage("After decoding mesh")
             
+        ret['slat'] = slat
         self._print_vram_usage("After decoding all formats")
         return ret
 
