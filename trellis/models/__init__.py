@@ -50,7 +50,7 @@ def from_pretrained(path: str, **kwargs):
     import json
     from safetensors.torch import load_file
     is_local = os.path.exists(f"{path}.json") and os.path.exists(f"{path}.safetensors")
-
+    print("in models.from_pretrained, is_local: ", is_local)
     if is_local:
         config_file = f"{path}.json"
         model_file = f"{path}.safetensors"
@@ -66,7 +66,7 @@ def from_pretrained(path: str, **kwargs):
         config = json.load(f)
     model = __getattr__(config['name'])(**config['args'], **kwargs)
     model.load_state_dict(load_file(model_file))
-
+    print("in models.from_pretrained, model: ", model)
     return model
 
 

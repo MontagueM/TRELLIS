@@ -26,6 +26,7 @@ class Pipeline:
         import os
         import json
         is_local = os.path.exists(f"{path}/pipeline.json")
+        print("in pipeline.from_pretrained, is_local: ", is_local)
 
         if is_local:
             config_file = f"{path}/pipeline.json"
@@ -36,13 +37,19 @@ class Pipeline:
         with open(config_file, 'r') as f:
             args = json.load(f)['args']
 
+        print("in pipeline.from_pretrained, args: ", args)
         _models = {}
         for k, v in args['models'].items():
+            print("in pipeline.from_pretrained, models k: ", k)
+            print("in pipeline.from_pretrained, models v: ", v)
             try:
+                print(f"trying {path}/{v}")
                 _models[k] = models.from_pretrained(f"{path}/{v}")
             except:
+                print(f"could not find {v} in {path}, trying {v} directly")
                 _models[k] = models.from_pretrained(v)
 
+        print("in pipeline.from_pretrained, _models: ", _models)
         new_pipeline = Pipeline(_models)
         new_pipeline._pretrained_args = args
         return new_pipeline
