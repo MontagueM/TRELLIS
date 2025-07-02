@@ -1,8 +1,7 @@
 import importlib
 import os
 import time
-import shutil
-import subprocess
+from typing import Optional
 
 __attributes = {
     'SparseStructureEncoder': 'sparse_structure_vae',
@@ -27,6 +26,24 @@ __submodules = []
 
 __all__ = list(__attributes.keys()) + __submodules
 
+# Global TransferManager instance
+_transfer_manager = None
+
+def _get_transfer_manager():
+    """Get or create the global TransferManager instance."""
+    global _transfer_manager
+    if _transfer_manager is None:
+        try:
+            from google.cloud import storage
+            from google.cloud.storage.transfer_manager import TransferManager
+            client = storage.Client()
+            _transfer_manager = TransferManager(client)
+        except ImportError as e:
+            print(f"Failed to import Google Cloud Storage: {e}")
+            print("Please install google-cloud-storage: pip install google-cloud-storage")
+            return None
+    return _transfer_manager
+
 def __getattr__(name):
     if name not in globals():
         if name in __attributes:
@@ -41,88 +58,70 @@ def __getattr__(name):
     return globals()[name]
 
 
-def dl1(path: str):
+def download_file_parallel(path: str, max_workers: int = 8, chunk_size: int = 32 * 1024 * 1024) -> Optional[str]:
     """
-    Copy a file to the local path and print how long it took.
+    Download a file from GCS using parallel chunked downloads with TransferManager.
     
     Args:
-        path: The source file path to copy
+        path: The file path to download
+        max_workers: Maximum number of parallel download workers for chunks
+        chunk_size: Size of each download chunk in bytes (default: 32MB)
+        
+    Returns:
+        Local path of downloaded file, or None if failed
     """
     start_time = time.time()
     
-    # Create a local copy in the current working directory
-    filename = os.path.basename(path)
-    local_path = f"{filename}.local_copy"
-    
-    try:
-        shutil.copy2(path, local_path)
-        end_time = time.time()
-        duration = end_time - start_time
-        print(f"dl1: Copied {path} to {local_path} in {duration:.4f} seconds")
-        return local_path
-    except Exception as e:
-        end_time = time.time()
-        duration = end_time - start_time
-        print(f"dl1: Failed to copy {path} after {duration:.4f} seconds - Error: {e}")
+    manager = _get_transfer_manager()
+    if manager is None:
         return None
-
-
-def dl2(path: str):
-    """
-    Download a file from GCS and print how long it took.
-    
-    Args:
-        path: The file path (e.g., /models/trellis-text-xlarge/model.safetensors)
-              Will be converted to gs://mont-test-vector/trellis-text-xlarge/model.safetensors
-    """
-    start_time = time.time()
     
     # Extract the fixed path by removing /models/ prefix if present
     if path.startswith('/models/'):
-        fixed_path = path[8:]  # Remove '/models/' (8 characters)
+        blob_name = path[8:]  # Remove '/models/' (8 characters)
     else:
-        fixed_path = path.lstrip('/')  # Remove leading slash if present
+        blob_name = path.lstrip('/')  # Remove leading slash if present
     
-    gcs_path = f"gs://mont-test-vector/{fixed_path}"
+    bucket_name = "mont-test-vector"
     
     # Save to current working directory
     filename = os.path.basename(path)
     local_download_path = f"{filename}.gcs_download"
     
     try:
-        # Use gsutil to download from GCS
-        result = subprocess.run(
-            ['gsutil', 'cp', gcs_path, local_download_path],
-            capture_output=True,
-            text=True,
-            check=True
+        print(f"Starting parallel chunked download: gs://{bucket_name}/{blob_name}")
+        print(f"Workers: {max_workers}, Chunk size: {chunk_size // (1024*1024)}MB")
+        
+        manager.download(
+            bucket_name=bucket_name,
+            blob_name=blob_name,
+            download_path=local_download_path,
+            max_workers=max_workers,
+            chunk_size=chunk_size
         )
         
         end_time = time.time()
         duration = end_time - start_time
-        print(f"dl2: Downloaded {gcs_path} to {local_download_path} in {duration:.4f} seconds")
+        
+        # Get file size for reporting
+        file_size = os.path.getsize(local_download_path) if os.path.exists(local_download_path) else 0
+        file_size_mb = file_size / (1024 * 1024)
+        
+        print(f"Downloaded gs://{bucket_name}/{blob_name} to {local_download_path}")
+        print(f"Size: {file_size_mb:.2f}MB, Time: {duration:.4f}s, Speed: {file_size_mb/duration:.2f}MB/s")
+        
         return local_download_path
         
-    except subprocess.CalledProcessError as e:
-        end_time = time.time()
-        duration = end_time - start_time
-        print(f"dl2: Failed to download {gcs_path} after {duration:.4f} seconds - Error: {e.stderr}")
-        return None
-    except FileNotFoundError:
-        end_time = time.time()
-        duration = end_time - start_time
-        print(f"dl2: gsutil not found. Failed to download {gcs_path} after {duration:.4f} seconds")
-        return None
     except Exception as e:
         end_time = time.time()
         duration = end_time - start_time
-        print(f"dl2: Unexpected error downloading {gcs_path} after {duration:.4f} seconds - Error: {e}")
+        print(f"Failed to download gs://{bucket_name}/{blob_name} after {duration:.4f} seconds - Error: {e}")
         return None
 
 
 def from_pretrained(path: str, **kwargs):
     """
-    Load a model from a pretrained checkpoint.
+    Load a model from a pretrained checkpoint, downloading from GCS if needed.
 
     Args:
         path: The path to the checkpoint. Can be either local path or a Hugging Face model name.
@@ -131,28 +130,50 @@ def from_pretrained(path: str, **kwargs):
     """
     import json
     from safetensors.torch import load_file
-    is_local = os.path.exists(f"{path}.json") and os.path.exists(f"{path}.safetensors")
+    
+    config_path = f"{path}.json"
+    model_path = f"{path}.safetensors"
+    
+    is_local = os.path.exists(config_path) and os.path.exists(model_path)
     print("in models.from_pretrained, is_local: ", is_local)
+    
     if is_local:
-        config_file = f"{path}.json"
-        model_file = f"{path}.safetensors"
+        config_file = config_path
+        model_file = model_path
     else:
-        from huggingface_hub import hf_hub_download
-        path_parts = path.split('/')
-        repo_id = f'{path_parts[0]}/{path_parts[1]}'
-        model_name = '/'.join(path_parts[2:])
-        config_file = hf_hub_download(repo_id, f"{model_name}.json")
-        model_file = hf_hub_download(repo_id, f"{model_name}.safetensors")
+        # Try to download from GCS first using parallel chunked downloads
+        print("Attempting to download config file from GCS...")
+        downloaded_config = download_file_parallel(config_path)
+        
+        print("Attempting to download model file from GCS...")
+        downloaded_model = download_file_parallel(model_path)
+        
+        if downloaded_config and downloaded_model:
+            # Use downloaded files
+            config_file = downloaded_config
+            model_file = downloaded_model
+            print(f"Using downloaded files: config={config_file}, model={model_file}")
+        else:
+            # Fallback to Hugging Face Hub
+            print("GCS download failed, falling back to Hugging Face Hub...")
+            from huggingface_hub import hf_hub_download
+            path_parts = path.split('/')
+            repo_id = f'{path_parts[0]}/{path_parts[1]}'
+            model_name = '/'.join(path_parts[2:])
+            config_file = hf_hub_download(repo_id, f"{model_name}.json")
+            model_file = hf_hub_download(repo_id, f"{model_name}.safetensors")
 
     with open(config_file, 'r') as f:
         config = json.load(f)
     print("in models.from_pretrained, config: ", config)
+    
     model = __getattr__(config['name'])(**config['args'], **kwargs)
     print("in models.from_pretrained, model from getattr: ", model)
-    download_model1 = dl1(model_file)
-    download_model2 = dl2(model_file)
+    
+    # Load the model state dict from the appropriate file
     model.load_state_dict(load_file(model_file))
     print("in models.from_pretrained, model after load_state_dict: ", model)
+    
     return model
 
 
