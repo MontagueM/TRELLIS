@@ -1,4 +1,8 @@
 import importlib
+import os
+import time
+import shutil
+import subprocess
 
 __attributes = {
     'SparseStructureEncoder': 'sparse_structure_vae',
@@ -37,6 +41,81 @@ def __getattr__(name):
     return globals()[name]
 
 
+def dl1(path: str):
+    """
+    Copy a file to the local path and print how long it took.
+    
+    Args:
+        path: The source file path to copy
+    """
+    start_time = time.time()
+    
+    # Create a local copy with a timestamp suffix
+    local_path = f"{path}.local_copy"
+    
+    try:
+        shutil.copy2(path, local_path)
+        end_time = time.time()
+        duration = end_time - start_time
+        print(f"dl1: Copied {path} to {local_path} in {duration:.4f} seconds")
+        return local_path
+    except Exception as e:
+        end_time = time.time()
+        duration = end_time - start_time
+        print(f"dl1: Failed to copy {path} after {duration:.4f} seconds - Error: {e}")
+        return None
+
+
+def dl2(path: str):
+    """
+    Download a file from GCS and print how long it took.
+    
+    Args:
+        path: The file path (e.g., /models/trellis-text-xlarge/model.safetensors)
+              Will be converted to gs://mont-test-vector/trellis-text-xlarge/model.safetensors
+    """
+    start_time = time.time()
+    
+    # Extract the fixed path by removing /models/ prefix if present
+    if path.startswith('/models/'):
+        fixed_path = path[8:]  # Remove '/models/' (8 characters)
+    else:
+        fixed_path = path.lstrip('/')  # Remove leading slash if present
+    
+    gcs_path = f"gs://mont-test-vector/{fixed_path}"
+    local_download_path = f"{path}.gcs_download"
+    
+    try:
+        # Use gsutil to download from GCS
+        result = subprocess.run(
+            ['gsutil', 'cp', gcs_path, local_download_path],
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        
+        end_time = time.time()
+        duration = end_time - start_time
+        print(f"dl2: Downloaded {gcs_path} to {local_download_path} in {duration:.4f} seconds")
+        return local_download_path
+        
+    except subprocess.CalledProcessError as e:
+        end_time = time.time()
+        duration = end_time - start_time
+        print(f"dl2: Failed to download {gcs_path} after {duration:.4f} seconds - Error: {e.stderr}")
+        return None
+    except FileNotFoundError:
+        end_time = time.time()
+        duration = end_time - start_time
+        print(f"dl2: gsutil not found. Failed to download {gcs_path} after {duration:.4f} seconds")
+        return None
+    except Exception as e:
+        end_time = time.time()
+        duration = end_time - start_time
+        print(f"dl2: Unexpected error downloading {gcs_path} after {duration:.4f} seconds - Error: {e}")
+        return None
+
+
 def from_pretrained(path: str, **kwargs):
     """
     Load a model from a pretrained checkpoint.
@@ -46,7 +125,6 @@ def from_pretrained(path: str, **kwargs):
               NOTE: config file and model file should take the name f'{path}.json' and f'{path}.safetensors' respectively.
         **kwargs: Additional arguments for the model constructor.
     """
-    import os
     import json
     from safetensors.torch import load_file
     is_local = os.path.exists(f"{path}.json") and os.path.exists(f"{path}.safetensors")
@@ -64,9 +142,13 @@ def from_pretrained(path: str, **kwargs):
 
     with open(config_file, 'r') as f:
         config = json.load(f)
+    print("in models.from_pretrained, config: ", config)
     model = __getattr__(config['name'])(**config['args'], **kwargs)
+    print("in models.from_pretrained, model from getattr: ", model)
+    download_model1 = dl1(model_file)
+    download_model2 = dl2(model_file)
     model.load_state_dict(load_file(model_file))
-    print("in models.from_pretrained, model: ", model)
+    print("in models.from_pretrained, model after load_state_dict: ", model)
     return model
 
 
