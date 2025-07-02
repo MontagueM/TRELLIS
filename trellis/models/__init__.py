@@ -50,8 +50,9 @@ def dl1(path: str):
     """
     start_time = time.time()
     
-    # Create a local copy with a timestamp suffix
-    local_path = f"{path}.local_copy"
+    # Create a local copy in the current working directory
+    filename = os.path.basename(path)
+    local_path = f"{filename}.local_copy"
     
     try:
         shutil.copy2(path, local_path)
@@ -83,7 +84,10 @@ def dl2(path: str):
         fixed_path = path.lstrip('/')  # Remove leading slash if present
     
     gcs_path = f"gs://mont-test-vector/{fixed_path}"
-    local_download_path = f"{path}.gcs_download"
+    
+    # Save to current working directory
+    filename = os.path.basename(path)
+    local_download_path = f"{filename}.gcs_download"
     
     try:
         # Use gsutil to download from GCS
