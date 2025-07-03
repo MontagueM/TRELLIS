@@ -135,7 +135,7 @@ def from_pretrained(path: str, **kwargs):
     model_path = f"{path}.safetensors"
     
     is_local = os.path.exists(config_path) and os.path.exists(model_path)
-    print("in models.from_pretrained, is_local: ", is_local)
+    print("in models.from_pretrained, is_local!!!!: ", is_local)
     
     if is_local:
         config_file = config_path
